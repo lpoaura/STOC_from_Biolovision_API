@@ -338,3 +338,8 @@ EXECUTE PROCEDURE pr_stoc.upsert_releves();
 
 UPDATE import_vn.forms_json
 SET site=site;
+
+/* Trigger sur les observations, conditions:
+   id_form_universal not null and id_form_universal in (select id_form_universal from pr_stoc.t_releves) */
+
+
