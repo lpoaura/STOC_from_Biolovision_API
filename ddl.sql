@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS pr_stoc AUTHORIZATION geonature;
 
 CREATE TABLE IF NOT EXISTS pr_stoc.l_grille
     (
-        id        integer NOT NULL primary key,
+        id        integer NOT NULL PRIMARY KEY,
         area      float,
         perimeter float,
         carrenat  integer,
@@ -29,10 +29,10 @@ ALTER TABLE pr_stoc.l_grille
 
 
 /* Table des points */
--- drop table if exists pr_stoc.releves cascade;
+-- drop table if exists pr_stoc.t_releves cascade;
 CREATE TABLE pr_stoc.t_releves
     (
-        id           serial not null PRIMARY KEY,
+        id           serial NOT NULL PRIMARY KEY,
         date         date,
         heure        time,
         observateur  varchar(100),
@@ -56,10 +56,11 @@ CREATE TABLE pr_stoc.t_releves
         s_ss_cat1    varchar(10),
         s_ss_cat2    varchar(10),
         site         boolean,
-        source_bdd   varchar(50),
         geom         geometry(point, 2154),
         passage_mnhn varchar(10),
-        id_source    text[]
+        source_bdd   varchar(50),
+        source_id    text[],
+        source_id_universal varchar(50) unique
     )
 ;
 
@@ -107,11 +108,13 @@ CREATE UNIQUE INDEX ON pr_stoc.t_observations (carre_numnat, date, id_releve, po
 -- ;
 
 /* Table des correspondances des distances */
+--DROP TABLE pr_stoc.bib_code_distances;
 
 CREATE TABLE pr_stoc.bib_code_distances
     (
         id                    bigint NOT NULL PRIMARY KEY,
         code                  varchar(100),
+        code_vn               varchar(20),
         libelle               varchar(200),
         defaut                varchar(200),
         libelle_international varchar(200)
@@ -121,8 +124,10 @@ ALTER TABLE pr_stoc.bib_code_distances
     OWNER TO geonature;
 
 CREATE INDEX ON pr_stoc.bib_code_distances USING btree (id);
+CREATE INDEX ON pr_stoc.bib_code_distances USING btree (code_vn);
 
-alter table pr_stoc.bib_code_points rename to bib_code_points_old;
+ALTER TABLE pr_stoc.bib_code_points
+    RENAME TO bib_code_points_old;
 
 CREATE TABLE pr_stoc.bib_code_points
     (
@@ -131,7 +136,7 @@ CREATE TABLE pr_stoc.bib_code_points
         principal  varchar(5),
         colonne    varchar(5),
         code       varchar(50),
-        code_vn varchar(50),
+        code_vn    varchar(50),
         libelle    varchar(200),
         libelle_vn varchar(100)
     )
