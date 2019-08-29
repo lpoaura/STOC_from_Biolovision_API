@@ -62,12 +62,18 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION pr_stoc.delete_releves() RETURNS TRIGGER AS
 $$
+DECLARE
+    the_date         DATE;
+    the_carre_numnat INTEGER;
+    the_point_num    INTEGER;
 BEGIN
-    RAISE NOTICE 'TG_OP %', tg_op;
     -- Deleting data on src_vn.observations when raw data is deleted
+    the_carre_numnat = cast(old.item #>> '{protocol, site_code}' AS BIGINT);
+    the_point_num = cast(old.item #>> '{protocol, sequence_number}' AS BIGINT);
+    the_date = CAST(old.item ->> 'date_start' AS DATE);
     DELETE
     FROM pr_stoc.t_releves
-    WHERE (carre_numnat, date, point_num) = (old.item;
+    WHERE (carre_numnat, date, point_num) = (the_carre_numnat, the_date, the_point_num);
     RAISE NOTICE 'DELETE DATA % from %', old.id, old.site;
     IF NOT found
     THEN
@@ -77,6 +83,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS stoc_releve_delete_from_vn_trigger ON import_vn.forms_json;
+CREATE TRIGGER stoc_releve_delete_from_vn_trigger
+    AFTER DELETE
+    ON import_vn.forms_json
+    FOR EACH ROW
+    WHEN (old.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
+EXECUTE PROCEDURE pr_stoc.delete_releves();
 
 CREATE OR REPLACE FUNCTION pr_stoc.upsert_releves() RETURNS TRIGGER AS
 $$
@@ -108,6 +121,7 @@ DECLARE
     the_passage_mnhn        VARCHAR(10);
     the_source_id_universal VARCHAR(20);
     the_source_bdd          VARCHAR(20);
+    the_type_eps            VARCHAR(20);
 BEGIN
     the_date = CAST(new.item ->> 'date_start' AS DATE);
     the_heure = CAST(new.item ->> 'time_start' AS TIME);
@@ -117,7 +131,8 @@ BEGIN
     the_carre_numnat = cast(new.item #>> '{protocol, site_code}' AS BIGINT);
     the_point_num = cast(new.item #>> '{protocol, sequence_number}' AS BIGINT);
     the_altitude = pr_stoc.get_altitude_from_dem(st_transform(
-        st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154));
+            st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
+            2154));
     the_nuage = pr_stoc.get_code_point_values_from_vn_code('code'::TEXT, new.item #>> '{protocol, stoc_cloud}');
     the_pluie = pr_stoc.get_code_point_values_from_vn_code('code'::TEXT, new.item #>> '{protocol, stoc_rain}');
     the_vent = pr_stoc.get_code_point_values_from_vn_code('code'::TEXT, new.item #>> '{protocol, stoc_wind}');
@@ -143,6 +158,9 @@ BEGIN
     the_passage_mnhn = cast(new.item #>> '{protocol, visit_number}' AS INT);
     the_source_id_universal = new.item ->> 'id_form_universal';
     the_source_bdd = new.site;
+    the_type_eps = CASE WHEN (new.item -> 'protocol' ? 'stoc_transport')
+                            THEN 'Transect'
+                        ELSE NULL END;
     IF (TG_OP = 'UPDATE')
     THEN
         UPDATE pr_stoc.t_releves
@@ -172,8 +190,10 @@ BEGIN
             geom                = the_geom,
             passage_mnhn        = the_passage_mnhn,
             source_bdd          = the_source_bdd,
-            source_id_universal = the_source_id_universal
-        WHERE (carre_numnat, date, point_num) = (the_carre_numnat, the_date, the_point_num);
+            source_id_universal = the_source_id_universal,
+            type_eps            = the_type_eps
+        WHERE (carre_numnat, date, point_num, source_id_universal) =
+              (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
         IF NOT found
         THEN
             INSERT INTO pr_stoc.t_releves (date,
@@ -202,7 +222,8 @@ BEGIN
                                            geom,
                                            passage_mnhn,
                                            source_bdd,
-                                           source_id_universal)
+                                           source_id_universal,
+                                           type_eps)
             VALUES (the_date,
                     the_heure,
                     the_observateur,
@@ -229,7 +250,8 @@ BEGIN
                     the_geom,
                     the_passage_mnhn,
                     the_source_bdd,
-                    the_source_id_universal);
+                    the_source_id_universal,
+                    the_type_eps);
             RETURN new;
         END IF;
         RETURN new;
@@ -262,7 +284,8 @@ BEGIN
                                            geom,
                                            passage_mnhn,
                                            source_bdd,
-                                           source_id_universal)
+                                           source_id_universal,
+                                           type_eps)
             VALUES (the_date,
                     the_heure,
                     the_observateur,
@@ -289,7 +312,8 @@ BEGIN
                     the_geom,
                     the_passage_mnhn,
                     the_source_bdd,
-                    the_source_id_universal)
+                    the_source_id_universal,
+                    the_type_eps)
             ON CONFLICT DO UPDATE SET date                = the_date,
                                       heure               = the_heure,
                                       observateur         = the_observateur,
@@ -316,7 +340,10 @@ BEGIN
                                       geom                = the_geom,
                                       passage_mnhn        = the_passage_mnhn,
                                       source_bdd          = the_source_bdd,
-                                      source_id_universal = the_source_id_universal;
+                                      source_id_universal = the_source_id_universal,
+                                      type_eps            = the_type_eps
+            WHERE (carre_numnat, date, point_num, source_id_universal) =
+                  (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
             RETURN new;
         END IF;
         RETURN new;
@@ -328,18 +355,81 @@ $$ LANGUAGE plpgsql;
 /* trigger sur les relevés
    - Sur les relevés avec un id_form_universal null uniquement pour éviter les erreurs sur les archives stoc FEPS et MNHN
  */
-DROP TRIGGER IF EXISTS stoc_releve_update_from_vn_trigger ON import_vn.forms_json;
-CREATE TRIGGER stoc_releve_update_from_vn_trigger
+DROP TRIGGER IF EXISTS stoc_releve_upsert_from_vn_trigger ON import_vn.forms_json;
+CREATE TRIGGER stoc_releve_upsert_from_vn_trigger
     AFTER UPDATE OR INSERT
     ON import_vn.forms_json
     FOR EACH ROW
     WHEN (new.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
 EXECUTE PROCEDURE pr_stoc.upsert_releves();
 
+
+
 UPDATE import_vn.forms_json
 SET site=site;
+
+SELECT *
+FROM pr_stoc.t_releves;
+
+/* Trigger sur les observations pour détecter les types de relevés (transect ou point d'écoute */
+
+CREATE OR REPLACE FUNCTION pr_stoc.update_type_releves_from_obs() RETURNS TRIGGER AS
+$$
+DECLARE
+    source_type_eps VARCHAR(20);
+    new_type_eps    VARCHAR(20);
+    form_type       BOOLEAN;
+BEGIN
+    form_type = new.id_form_universal IN (SELECT source_id_universal FROM pr_stoc.t_releves);
+    IF form_type
+    THEN
+        source_type_eps = (SELECT type_eps FROM pr_stoc.t_releves WHERE source_id_universal = new.id_form_universal);
+        new_type_eps = CASE WHEN (NEW.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
+                                THEN 'Point'
+                            WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'transect'
+                                THEN 'Transect'
+                            ELSE NULL
+            END;
+        RAISE NOTICE 'FORM % | OLD % | NEW %', new.id_form_universal, source_type_eps, new_type_eps;
+        RAISE NOTICE 'DIFF %', (source_type_eps is distinct from new_type_eps);
+        IF (source_type_eps is distinct from  new_type_eps)
+        THEN
+            RAISE NOTICE 'releve % to update with %', NEW.id_form_universal, new_type_eps;
+            UPDATE pr_stoc.t_releves
+            SET type_eps = new_type_eps
+            WHERE source_id_universal = NEW.id_form_universal;
+        END IF;
+        RETURN NEW;
+    END IF;
+    RETURN NEW;
+END ;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS stoc_releve_update_type_eps_from_vn_trigger
+    ON import_vn.observations_json;
+CREATE TRIGGER stoc_releve_update_type_eps_from_vn_trigger
+    AFTER UPDATE OR INSERT
+    ON import_vn.observations_json
+    FOR EACH ROW
+    WHEN (NEW.id_form_universal IS NOT NULL)
+EXECUTE PROCEDURE pr_stoc.update_type_releves_from_obs();
 
 /* Trigger sur les observations, conditions:
    id_form_universal not null and id_form_universal in (select id_form_universal from pr_stoc.t_releves) */
 
 
+DROP TRIGGER IF EXISTS stoc_observation_upsert_from_vn_trigger
+    ON import_vn.forms_json;
+CREATE TRIGGER stoc_observation_upsert_from_vn_trigger
+    AFTER UPDATE OR INSERT
+    ON import_vn.observations_json
+    FOR EACH ROW
+    WHEN (NEW.id_form_universal IS NOT NULL)
+EXECUTE PROCEDURE pr_stoc.update_type_releves_from_obs();
+
+
+/*
+UPDATE import_vn.observations_json
+SET site=site
+WHERE id_form_universal IS NOT NULL;
+*/

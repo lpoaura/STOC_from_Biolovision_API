@@ -105,7 +105,8 @@ SELECT CAST(new.item ->> 'date_start' AS DATE)                                  
     cast(new.item #>> '{protocol, sequence_number}' AS BIGINT)                             AS the_point_num
      ,
     pr_stoc.get_altitude_from_dem(st_transform(
-        st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154)) AS alti
+            st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
+            2154))                                                                         AS alti
      ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
                                                new.item #>> '{protocol, stoc_cloud}')      AS the_nuage
@@ -160,7 +161,8 @@ SELECT CAST(new.item ->> 'date_start' AS DATE)                                  
          ELSE FALSE END                                                                    AS the_site
      ,
     st_transform(
-        st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154)                                                                       AS geom
+            st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
+            2154)                                                                          AS geom
      ,
     cast(new.item #>> '{protocol, visit_number}' AS INT)                                   AS the_passage_mnhn
 
@@ -210,5 +212,89 @@ CAST
     ((item -> '@uid') AS INTEGER)
     FROM import_vn.forms_json;
 
-select distinct st_srid(st_transform(
-        st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154)) from import_vn.forms_json new;
+SELECT DISTINCT st_srid(st_transform(
+        st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154))
+FROM import_vn.forms_json new;
+
+CREATE TABLE tmp.forms_arch AS
+SELECT *
+FROM import_vn.forms_json
+WHERE (cast(forms_json.item ->> '@uid' AS INT) = 11095)
+
+/* Recherche de formulaires STOC en doublon */
+WITH t1 AS
+         (SELECT DISTINCT array_agg(DISTINCT item ->> 'id_form_universal') AS id_form_universal
+               ,
+              array_agg(DISTINCT src_lpodatas.get_observer_full_name_from_vn(
+                      cast(item ->> '@uid' AS INT)))                       AS observers
+               ,
+              item #>> '{protocol, site_code}'                             AS carre
+               ,
+              item ->> 'date_start'                                        AS date
+               ,
+              item #>> '{protocol, sequence_number}'                       AS pt
+               ,
+              count(*)
+               ,
+              bool_or(item -> 'protocol' ? 'stoc_transport')
+          FROM import_vn.forms_json
+          WHERE item #>> '{protocol, protocol_name}' LIKE
+                'STOC_EPS'
+          GROUP BY /*item ->> 'id_form_universal'
+                 ,*/
+              item #>> '{protocol, site_code}'
+                 ,
+              item ->> 'date_start'
+                 ,
+              item #>> '{protocol, sequence_number}'
+          HAVING count(*) > 1)
+SELECT *
+FROM import_vn.forms_json
+WHERE item #>> '{protocol, protocol_name}' LIKE
+      'STOC_EPS' AND
+      item ->>
+      'id_form_universal' NOT IN
+      (SELECT source_id_universal
+       FROM pr_stoc.t_releves) AND
+      (concat(CAST(item #>>
+                   '{protocol, site_code}' AS BIGINT),
+              '|',
+              CAST(item ->>
+                   'date_start' AS DATE),
+              '|',
+              CAST(item #>>
+                   '{protocol, sequence_number}' AS BIGINT))) NOT IN
+      (SELECT concat(carre_numnat,
+                     '|', date,
+                     '|', point_num)
+       FROM pr_stoc.t_releves);
+
+UPDATE import_vn.forms_json
+SET site=site;
+
+SELECT extract(EPOCH FROM now());
+
+SELECT DISTINCT ((o.item -> 'observers') -> 0) ->> 'precision', count(*)
+FROM import_vn.forms_json f
+         LEFT JOIN import_vn.observations_json o ON o.id_form_universal = f.item ->> 'id_form_universal'
+WHERE f.item ->> 'id_form_universal' IS NOT NULL
+GROUP BY ((o.item -> 'observers') -> 0) ->> 'precision';
+
+SELECT r.carre_numnat
+     , r.date
+     , r.passage_mnhn
+     , r.source_id_universal
+     , CASE WHEN (o.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
+                THEN 'Point'
+            WHEN (o.item -> 'observers') -> 0 ->> 'precision' LIKE 'transect'
+                THEN 'Transect'
+            ELSE NULL END AS type
+FROM pr_stoc.t_releves r
+         JOIN import_vn.observations_json o ON o.id_form_universal = r.source_id_universal
+
+/* identify STOC EPS Points */
+SELECT id, site, jsonb_pretty(item)
+FROM import_vn.forms_json
+WHERE item ->> 'id_form_universal' IN ('30_2206', '30_2209');
+
+SELECT type_eps FROM pr_stoc.t_releves WHERE source_id_universal = '30_2206'

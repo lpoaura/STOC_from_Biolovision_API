@@ -58,3 +58,7 @@ Les données de formulaires reçues de l'API sont structurées de la sorte:
     "stoc_visibility": "GOOD_VISIBILITY"
 }
 ```
+
+## Structure des données
+
+![logo](mcd.png "Title")
