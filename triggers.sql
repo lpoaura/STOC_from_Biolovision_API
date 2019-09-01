@@ -4,7 +4,9 @@
 
 /* Retrieve survey values from  visionature codes  (habitat, meteo, etc.)  */
 
-DROP FUNCTION IF EXISTS pr_stoc.get_code_point_values_from_vn_code;
+DROP FUNCTION IF EXISTS pr_stoc.get_code_point_values_from_vn_code
+;
+
 CREATE OR REPLACE FUNCTION pr_stoc.get_code_point_values_from_vn_code(field_name ANYELEMENT, vn_code TEXT, OUT result ANYELEMENT)
     RETURNS ANYELEMENT AS
 $$
@@ -15,7 +17,9 @@ BEGIN
         INTO result
         USING vn_code;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 
 /* TEST:
@@ -29,7 +33,9 @@ RESULTAT:
 
 /* Retrieve distances values from  visionature codes  (distance)  */
 
-DROP FUNCTION IF EXISTS pr_stoc.get_distance_label_from_vn_code;
+DROP FUNCTION IF EXISTS pr_stoc.get_distance_label_from_vn_code
+;
+
 CREATE OR REPLACE FUNCTION pr_stoc.get_distance_label_from_vn_code(vn_code TEXT, OUT result TEXT)
     RETURNS TEXT AS
 $$
@@ -39,9 +45,13 @@ BEGIN
         INTO result
         USING vn_code;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
-DROP FUNCTION IF EXISTS pr_stoc.get_altitude_from_dem;
+DROP FUNCTION IF EXISTS pr_stoc.get_altitude_from_dem
+;
+
 CREATE OR REPLACE FUNCTION pr_stoc.get_altitude_from_dem(geom GEOMETRY(POINT, 2154), OUT result INT)
     RETURNS INT AS
 $$
@@ -51,11 +61,15 @@ BEGIN
         INTO result
         USING geom;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 /* Get EURING code from vn id_species */
 
-DROP FUNCTION IF EXISTS pr_stoc.get_code_euring_from_vn_id_species;
+DROP FUNCTION IF EXISTS pr_stoc.get_code_euring_from_vn_id_species
+;
+
 CREATE OR REPLACE FUNCTION pr_stoc.get_code_euring_from_vn_id_species(id_species INT, OUT result VARCHAR(20))
     RETURNS VARCHAR(20) AS
 $$
@@ -65,11 +79,15 @@ BEGIN
         INTO result
         USING id_species;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 /* Get id_releve from vn id_form_universal */
 
-DROP FUNCTION IF EXISTS pr_stoc.get_id_releve_from_id_form_uid;
+DROP FUNCTION IF EXISTS pr_stoc.get_id_releve_from_id_form_uid
+;
+
 CREATE OR REPLACE FUNCTION pr_stoc.get_id_releve_from_id_form_uid(id_form_universal VARCHAR(50), OUT result INT)
     RETURNS INT AS
 $$
@@ -79,7 +97,52 @@ BEGIN
         INTO result
         USING id_form_universal;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
+
+
+DROP FUNCTION IF EXISTS import_vn.forms_json_id_universal
+;
+
+CREATE OR REPLACE FUNCTION import_vn.forms_json_id_universal(JSONB)
+    RETURNS VARCHAR(50)
+AS
+$$
+SELECT ($1 -> 'id_form_universal')::VARCHAR(50)
+$$
+    LANGUAGE SQL
+    IMMUTABLE
+    PARALLEL SAFE
+
+;
+
+DROP FUNCTION IF EXISTS import_vn.forms_json_protocol_name
+;
+
+CREATE OR REPLACE FUNCTION import_vn.forms_json_protocol_name(JSONB)
+    RETURNS VARCHAR(50)
+AS
+$$
+SELECT ($1 #> '{protocol, protocol_name}')::VARCHAR(50)
+$$
+    LANGUAGE SQL
+    IMMUTABLE
+    PARALLEL SAFE
+
+;
+
+DROP FUNCTION IF EXISTS pr_stoc.is_stoc_eps_form
+;
+
+CREATE FUNCTION pr_stoc.is_stoc_eps_form(id_form_universal VARCHAR(50), protocol_name VARCHAR(20)) RETURNS BOOLEAN AS
+$$
+SELECT item #>> '{protocol, protocol_name}' ILIKE $2
+FROM import_vn.forms_json
+WHERE item ->> 'id_form_universal' LIKE $1
+$$
+    LANGUAGE SQL
+;
 
 
 
@@ -88,34 +151,31 @@ select pr_stoc.get_code_euring_from_vn_id_species(518);
 */
 CREATE OR REPLACE FUNCTION pr_stoc.delete_releves() RETURNS TRIGGER AS
 $$
-DECLARE
-    the_date         DATE;
-    the_carre_numnat INTEGER;
-    the_point_num    INTEGER;
 BEGIN
     -- Deleting data on src_vn.observations when raw data is deleted
-    the_carre_numnat = cast(old.item #>> '{protocol, site_code}' AS BIGINT);
-    the_point_num = cast(old.item #>> '{protocol, sequence_number}' AS BIGINT);
-    the_date = CAST(old.item ->> 'date_start' AS DATE);
     DELETE
     FROM pr_stoc.t_releves
-    WHERE (carre_numnat, date, point_num) = (the_carre_numnat, the_date, the_point_num);
-    RAISE NOTICE 'DELETE DATA % from %', old.id, old.site;
+    WHERE source_id_universal = old.item ->> 'id_form_universal';
     IF NOT found
     THEN
         RETURN NULL;
     END IF;
     RETURN old;
 END;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
-DROP TRIGGER IF EXISTS stoc_releve_delete_from_vn_trigger ON import_vn.forms_json;
+DROP TRIGGER IF EXISTS stoc_releve_delete_from_vn_trigger ON import_vn.forms_json
+;
+
 CREATE TRIGGER stoc_releve_delete_from_vn_trigger
     AFTER DELETE
     ON import_vn.forms_json
     FOR EACH ROW
     WHEN (old.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
-EXECUTE PROCEDURE pr_stoc.delete_releves();
+EXECUTE PROCEDURE pr_stoc.delete_releves()
+;
 
 CREATE OR REPLACE FUNCTION pr_stoc.upsert_releves() RETURNS TRIGGER AS
 $$
@@ -187,64 +247,64 @@ BEGIN
     the_type_eps = CASE WHEN (new.item -> 'protocol' ? 'stoc_transport')
                             THEN 'Transect'
                         ELSE NULL END;
-    IF (TG_OP = 'UPDATE')
+    IF (tg_op = 'UPDATE')
     THEN
         UPDATE pr_stoc.t_releves
         SET
             date                = the_date
-          ,
+                ,
             heure               = the_heure
-          ,
+                ,
             observateur         = the_observateur
-          ,
+                ,
             carre_numnat        = the_carre_numnat
-          ,
+                ,
             point_num           = the_point_num
-          ,
+                ,
             altitude            = the_altitude
-          ,
+                ,
             nuage               = the_nuage
-          ,
+                ,
             pluie               = the_pluie
-          ,
+                ,
             vent                = the_vent
-          ,
+                ,
             visibilite          = the_visibilite
-          ,
+                ,
             p_milieu            = the_p_milieu
-          ,
+                ,
             p_type              = the_p_type
-          ,
+                ,
             p_cat1              = the_p_cat1
-          ,
+                ,
             p_cat2              = the_p_cat2
-          ,
+                ,
             p_ss_cat1           = the_p_ss_cat1
-          ,
+                ,
             p_ss_cat2           = the_p_ss_cat2
-          ,
+                ,
             s_milieu            = the_s_milieu
-          ,
+                ,
             s_type              = the_s_type
-          ,
+                ,
             s_cat1              = the_s_cat1
-          ,
+                ,
             s_cat2              = the_s_cat2
-          ,
+                ,
             s_ss_cat1           = the_s_ss_cat1
-          ,
+                ,
             s_ss_cat2           = the_s_ss_cat2
-          ,
+                ,
             site                = the_site
-          ,
+                ,
             geom                = the_geom
-          ,
+                ,
             passage_mnhn        = the_passage_mnhn
-          ,
+                ,
             source_bdd          = the_source_bdd
-          ,
+                ,
             source_id_universal = the_source_id_universal
-          ,
+                ,
             type_eps            = the_type_eps
         WHERE
                 (carre_numnat, date, point_num, source_id_universal) =
@@ -265,7 +325,7 @@ BEGIN
         END IF;
         RETURN new;
     ELSE
-        IF (TG_OP = 'INSERT')
+        IF (tg_op = 'INSERT')
         THEN
             INSERT INTO
                 pr_stoc.t_releves ( date, heure, observateur, carre_numnat, point_num, altitude, nuage, pluie, vent
@@ -278,61 +338,61 @@ BEGIN
             , the_s_milieu, the_s_type, the_s_cat1, the_s_cat2, the_s_ss_cat1, the_s_ss_cat2, the_site, the_geom
             , the_passage_mnhn, the_source_bdd, the_source_id_universal, the_type_eps)
             ON CONFLICT DO UPDATE SET
-                                      date                = the_date
-                                    ,
-                                      heure               = the_heure
-                                    ,
-                                      observateur         = the_observateur
-                                    ,
-                                      carre_numnat        = the_carre_numnat
-                                    ,
-                                      point_num           = the_point_num
-                                    ,
-                                      altitude            = the_altitude
-                                    ,
-                                      nuage               = the_nuage
-                                    ,
-                                      pluie               = the_pluie
-                                    ,
-                                      vent                = the_vent
-                                    ,
-                                      visibilite          = the_visibilite
-                                    ,
-                                      p_milieu            = the_p_milieu
-                                    ,
-                                      p_type              = the_p_type
-                                    ,
-                                      p_cat1              = the_p_cat1
-                                    ,
-                                      p_cat2              = the_p_cat2
-                                    ,
-                                      p_ss_cat1           = the_p_ss_cat1
-                                    ,
-                                      p_ss_cat2           = the_p_ss_cat2
-                                    ,
-                                      s_milieu            = the_s_milieu
-                                    ,
-                                      s_type              = the_s_type
-                                    ,
-                                      s_cat1              = the_s_cat1
-                                    ,
-                                      s_cat2              = the_s_cat2
-                                    ,
-                                      s_ss_cat1           = the_s_ss_cat1
-                                    ,
-                                      s_ss_cat2           = the_s_ss_cat2
-                                    ,
-                                      site                = the_site
-                                    ,
-                                      geom                = the_geom
-                                    ,
-                                      passage_mnhn        = the_passage_mnhn
-                                    ,
-                                      source_bdd          = the_source_bdd
-                                    ,
-                                      source_id_universal = the_source_id_universal
-                                    ,
-                                      type_eps            = the_type_eps
+                date                = the_date
+                    ,
+                heure               = the_heure
+                    ,
+                observateur         = the_observateur
+                    ,
+                carre_numnat        = the_carre_numnat
+                    ,
+                point_num           = the_point_num
+                    ,
+                altitude            = the_altitude
+                    ,
+                nuage               = the_nuage
+                    ,
+                pluie               = the_pluie
+                    ,
+                vent                = the_vent
+                    ,
+                visibilite          = the_visibilite
+                    ,
+                p_milieu            = the_p_milieu
+                    ,
+                p_type              = the_p_type
+                    ,
+                p_cat1              = the_p_cat1
+                    ,
+                p_cat2              = the_p_cat2
+                    ,
+                p_ss_cat1           = the_p_ss_cat1
+                    ,
+                p_ss_cat2           = the_p_ss_cat2
+                    ,
+                s_milieu            = the_s_milieu
+                    ,
+                s_type              = the_s_type
+                    ,
+                s_cat1              = the_s_cat1
+                    ,
+                s_cat2              = the_s_cat2
+                    ,
+                s_ss_cat1           = the_s_ss_cat1
+                    ,
+                s_ss_cat2           = the_s_ss_cat2
+                    ,
+                site                = the_site
+                    ,
+                geom                = the_geom
+                    ,
+                passage_mnhn        = the_passage_mnhn
+                    ,
+                source_bdd          = the_source_bdd
+                    ,
+                source_id_universal = the_source_id_universal
+                    ,
+                type_eps            = the_type_eps
             WHERE
                     (carre_numnat, date, point_num, source_id_universal) =
                     (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
@@ -341,28 +401,35 @@ BEGIN
         RETURN new;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 
 /* trigger sur les relevés
    - Sur les relevés avec un id_form_universal null uniquement pour éviter les erreurs sur les archives stoc FEPS et MNHN
  */
-DROP TRIGGER IF EXISTS stoc_releve_upsert_from_vn_trigger ON import_vn.forms_json;
+DROP TRIGGER IF EXISTS stoc_releve_upsert_from_vn_trigger ON import_vn.forms_json
+;
+
 CREATE TRIGGER stoc_releve_upsert_from_vn_trigger
     AFTER UPDATE OR INSERT
     ON import_vn.forms_json
     FOR EACH ROW
     WHEN (new.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
-EXECUTE PROCEDURE pr_stoc.upsert_releves();
+EXECUTE PROCEDURE pr_stoc.upsert_releves()
+;
 
 
 
-UPDATE import_vn.forms_json
-SET
-    site=site;
-
-SELECT *
-FROM pr_stoc.t_releves;
+-- UPDATE import_vn.forms_json
+-- SET
+--     site=site
+-- ;
+--
+-- SELECT *
+-- FROM pr_stoc.t_releves
+-- ;
 
 /* Trigger sur les observations pour détecter les types de relevés (transect ou point d'écoute */
 
@@ -377,7 +444,7 @@ BEGIN
     IF form_type
     THEN
         source_type_eps = (SELECT type_eps FROM pr_stoc.t_releves WHERE source_id_universal = new.id_form_universal);
-        new_type_eps = CASE WHEN (NEW.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
+        new_type_eps = CASE WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
                                 THEN 'Point'
                             WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'transect'
                                 THEN 'Transect'
@@ -390,30 +457,60 @@ BEGIN
 --             RAISE NOTICE 'releve % to update with %', NEW.id_form_universal, new_type_eps;
             UPDATE pr_stoc.t_releves
             SET type_eps = new_type_eps
-            WHERE source_id_universal = NEW.id_form_universal;
+            WHERE source_id_universal = new.id_form_universal;
         END IF;
-        RETURN NEW;
+        RETURN new;
     END IF;
-    RETURN NEW;
+    RETURN new;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 DROP TRIGGER IF EXISTS stoc_releve_update_type_eps_from_vn_trigger
-    ON import_vn.observations_json;
+    ON import_vn.observations_json
+;
+
 CREATE TRIGGER stoc_releve_update_type_eps_from_vn_trigger
     AFTER UPDATE OR INSERT
     ON import_vn.observations_json
     FOR EACH ROW
+    --     WHEN pr_stoc.is_stoc_eps_form(new.item, 'STOC_EPS')
     WHEN (NEW.id_form_universal IS NOT NULL)
-EXECUTE PROCEDURE pr_stoc.update_type_releves_from_obs();
+EXECUTE PROCEDURE pr_stoc.update_type_releves_from_obs()
+;
 
 /* Trigger sur les observations, conditions:
    id_form_universal not null and id_form_universal in (select id_form_universal from pr_stoc.t_releves) */
 
+CREATE OR REPLACE FUNCTION pr_stoc.delete_obs_from_vn() RETURNS TRIGGER AS
+$$
+BEGIN
+    DELETE
+    FROM pr_stoc.t_observations
+    WHERE (source_bdd, source.id) = (old.site, old.id);
+    IF NOT found
+    THEN
+        RETURN NULL;
+    END IF;
+    RETURN old;
+END;
+$$
+    LANGUAGE plpgsql
+;
+
+CREATE TRIGGER stoc_observation_delete_from_vn_trigger
+    AFTER DELETE
+    ON import_vn.observations_json
+    FOR EACH ROW
+EXECUTE PROCEDURE pr_stoc.delete_obs_from_vn()
+;
+
+
 CREATE OR REPLACE FUNCTION pr_stoc.upsert_obs_from_vn() RETURNS TRIGGER AS
 $$
 BEGIN
-    IF (TG_OP = 'UPDATE')
+    IF (tg_op = 'UPDATE')
     THEN
 --         RAISE NOTICE 'DELETE DATA FROM RELEVE %', pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
         DELETE
@@ -426,38 +523,34 @@ BEGIN
         pr_stoc.t_observations ( id_releve, codesp_euring, vn_is_species, nombre, distance, details, source_bdd
                                , source_id, source_id_universal)
     SELECT
-        pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal)                                 AS id_releve
-      , pr_stoc.get_code_euring_from_vn_id_species(cast(new.item #>> '{species, @id}' AS INT))        AS codesp_euring
-      , cast(new.item #>> '{species, @id}' AS INT)                                                    AS species
-      , cast(jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'count' AS INT)    AS nombre
+        pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal) AS id_releve
+      , pr_stoc.get_code_euring_from_vn_id_species(cast(new.item #>> '{species, @id}' AS INT)) AS codesp_euring
+      , cast(new.item #>> '{species, @id}' AS INT) AS species
+      , cast(jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'count' AS INT) AS nombre
       , pr_stoc.get_distance_label_from_vn_code(
                     jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'distance') AS dist
-      , jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details')                             AS details
-      , new.site                                                                                      AS source_bdd
-      , new.id                                                                                        AS source_id
-      , new.id_form_universal                                                                         AS id_form_universal;
+      , jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') AS details
+      , new.site AS source_bdd
+      , new.id AS source_id
+      , new.id_form_universal AS id_form_universal;
     RETURN NULL;
 END ;
-$$ LANGUAGE plpgsql;
+$$
+    LANGUAGE plpgsql
+;
 
 DROP TRIGGER IF EXISTS stoc_observation_upsert_from_vn_trigger
-    ON import_vn.observations_json;
+    ON import_vn.observations_json
+;
+
 CREATE TRIGGER stoc_observation_upsert_from_vn_trigger
     AFTER UPDATE OR INSERT
     ON import_vn.observations_json
     FOR EACH ROW
+--     WHEN pr_stoc.is_stoc_eps_form(new.item, 'STOC_EPS')
     WHEN (NEW.id_form_universal IS NOT NULL)
-EXECUTE PROCEDURE pr_stoc.upsert_obs_from_vn();
-
-TRUNCATE pr_stoc.t_observations RESTART IDENTITY;
-
-EXPLAIN (VERBOSE) UPDATE import_vn.observations_json
-                  SET
-                      site = site
-                  WHERE
-                          id_form_universal IN
-                          (SELECT source_id_universal FROM pr_stoc.t_releves);
-
+EXECUTE PROCEDURE pr_stoc.upsert_obs_from_vn()
+;
 
 /*
 UPDATE import_vn.forms_json

@@ -2,6 +2,7 @@
  * Créatiop d''une bdd de centralisation des données STOC depuis les portails VisioNature  *
  *******************************************************************************************/
 
+
 CREATE SCHEMA IF NOT EXISTS pr_stoc AUTHORIZATION geonature;
 
 CREATE TABLE IF NOT EXISTS pr_stoc.l_grille (
@@ -58,9 +59,6 @@ ALTER TABLE pr_stoc.bib_code_distances
 
 CREATE INDEX ON pr_stoc.bib_code_distances USING btree(id);
 CREATE INDEX ON pr_stoc.bib_code_distances USING btree(code_vn);
-
-ALTER TABLE pr_stoc.bib_code_points
-    RENAME TO bib_code_points_old;
 
 CREATE TABLE pr_stoc.bib_code_points (
     id         SERIAL PRIMARY KEY,
@@ -156,9 +154,6 @@ CREATE TABLE pr_stoc.t_observations (
     source_id           INTEGER,
     source_id_universal VARCHAR(50)
 )
-;
-
-CREATE UNIQUE INDEX ON pr_stoc.t_observations(carre_numnat, date, id_releve, point, codesp_euring, distance_v2)
 ;
 
 -- alter table pr_stoc.observations

@@ -1,12 +1,21 @@
 SELECT item ->> 'id_form_universal'
 FROM import_vn.forms_json
 WHERE
-    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
+
+INSERT INTO
+    pr_stoc.l_grille(id, area, perimeter, carrenat, numnat, x_coord, y_coord, geom)
+SELECT distinct
+id, area, perimeter, carrenat, numnat, x_coord, y_coord, geom
+FROM pr_stoc_old.stoc_grille_aura
+;
 
 SELECT jsonb_pretty(item)
 FROM import_vn.forms_json
 WHERE
-    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 
 SELECT DISTINCT (((o.item -> 'observers') -> 0) -> 'details' -> 0) AS dist
@@ -14,7 +23,8 @@ FROM
     import_vn.observations_json o
         LEFT JOIN import_vn.forms_json f ON o.id_form_universal = f.item ->> 'id_form_universal'
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 /*
 {"age": "AD", "sex": "U", "count": "1", "distance": "LESS200", "condition": "U"}
@@ -30,7 +40,8 @@ FROM
     import_vn.observations_json o
         LEFT JOIN import_vn.forms_json f ON o.id_form_universal = f.item ->> 'id_form_universal'
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 /*
 LESS100
@@ -45,7 +56,8 @@ FROM
     import_vn.observations_json o
         LEFT JOIN import_vn.forms_json f ON o.id_form_universal = f.item ->> 'id_form_universal'
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 /*
 AD
@@ -57,7 +69,8 @@ FROM
     import_vn.observations_json o
         LEFT JOIN import_vn.forms_json f ON o.id_form_universal = f.item ->> 'id_form_universal'
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 /*
 U
@@ -66,7 +79,8 @@ U
 SELECT jsonb_pretty(item)
 FROM import_vn.forms_json
 WHERE
-    item ->> 'id_form_universal' LIKE '65_469993';
+    item ->> 'id_form_universal' LIKE '65_469993'
+;
 
 SELECT
     date(to_timestamp(CAST(o.item #>> '{date,@timestamp}' AS DOUBLE PRECISION)))
@@ -75,18 +89,21 @@ FROM
     import_vn.observations_json o
         LEFT JOIN import_vn.forms_json f ON o.id_form_universal = f.item ->> 'id_form_universal'
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 SELECT jsonb_pretty(f.item)
 FROM import_vn.forms_json f
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 CREATE TABLE tmp.observers_forms AS
 SELECT DISTINCT o.id_form_universal, ((o.item -> 'observers') -> 0) -> '@uid'
 FROM import_vn.observations_json o
 WHERE
-    o.id_form_universal IS NOT NULL;
+    o.id_form_universal IS NOT NULL
+;
 
 WITH observ AS (SELECT DISTINCT o.id_form_universal, ((o.item -> 'observers') -> 0) -> '@uid' AS uid
                 FROM import_vn.observations_json o
@@ -96,98 +113,101 @@ SET
     item = jsonb_set(f.item, '{@uid}', observ.uid)
 FROM observ
 WHERE
-    observ.id_form_universal = f.item ->> 'id_form_universal';
+    observ.id_form_universal = f.item ->> 'id_form_universal'
+;
 
 SELECT jsonb_pretty(f.item)
 FROM import_vn.forms_json f
 WHERE
-    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 SELECT
-    extract(DOY FROM cast(f.item ->> 'date_start' AS DATE))   AS doy
-  , extract(dom FROM cast(f.item ->> 'date_start' AS DATE))   AS doy
+    extract(DOY FROM cast(f.item ->> 'date_start' AS DATE)) AS doy
+  , extract(dom FROM cast(f.item ->> 'date_start' AS DATE)) AS doy
   , extract(MONTH FROM cast(f.item ->> 'date_start' AS DATE)) AS doy
-  , f.item #>> '{protocol, visit_number}'                     AS visitnum
+  , f.item #>> '{protocol, visit_number}' AS visitnum
 FROM import_vn.forms_json f
 WHERE
     f.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
 ORDER BY
-    extract(DOY FROM cast(f.item ->> 'date_start' AS DATE)) DESC;
+    extract(DOY FROM cast(f.item ->> 'date_start' AS DATE)) DESC
+;
 
 
 SELECT
-    CAST(new.item ->> 'date_start' AS DATE)                                                AS the_date
+    CAST(new.item ->> 'date_start' AS DATE) AS the_date
   ,
-    cast(new.item ->> 'time_start' AS TIME)                                                AS the_heure
+    cast(new.item ->> 'time_start' AS TIME) AS the_heure
   ,
     src_lpodatas.get_observer_full_name_from_vn(
-            cast(item ->> '@uid' AS INT))                                                  AS the_observer
+            cast(item ->> '@uid' AS INT)) AS the_observer
   ,
-    cast(new.item #>> '{protocol, site_code}' AS BIGINT)                                   AS the_carre_numnat
+    cast(new.item #>> '{protocol, site_code}' AS BIGINT) AS the_carre_numnat
   ,
-    cast(new.item #>> '{protocol, sequence_number}' AS BIGINT)                             AS the_point_num
+    cast(new.item #>> '{protocol, sequence_number}' AS BIGINT) AS the_point_num
   ,
     pr_stoc.get_altitude_from_dem(st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
-            2154))                                                                         AS alti
+            2154)) AS alti
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, stoc_cloud}')      AS the_nuage
+                                               new.item #>> '{protocol, stoc_cloud}') AS the_nuage
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, stoc_rain}')       AS the_nuage
+                                               new.item #>> '{protocol, stoc_rain}') AS the_nuage
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, stoc_wind}')       AS the_nuage
+                                               new.item #>> '{protocol, stoc_wind}') AS the_nuage
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
                                                new.item #>> '{protocol, stoc_visibility}') AS the_nuage
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp1}')    AS the_p_milieu
+                                               new.item #>> '{protocol, habitat, hp1}') AS the_p_milieu
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp2}')    AS the_p_type
+                                               new.item #>> '{protocol, habitat, hp2}') AS the_p_type
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp3A}')   AS the_p_cat1
+                                               new.item #>> '{protocol, habitat, hp3A}') AS the_p_cat1
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp3B}')   AS the_p_cat2
+                                               new.item #>> '{protocol, habitat, hp3B}') AS the_p_cat2
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp4A}')   AS the_p_sscat1
+                                               new.item #>> '{protocol, habitat, hp4A}') AS the_p_sscat1
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hp4B}')   AS the_p_sscat2
+                                               new.item #>> '{protocol, habitat, hp4B}') AS the_p_sscat2
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs1}')    AS the_s_milieu
+                                               new.item #>> '{protocol, habitat, hs1}') AS the_s_milieu
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs2}')    AS the_s_type
+                                               new.item #>> '{protocol, habitat, hs2}') AS the_s_type
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs3A}')   AS the_s_cat1
+                                               new.item #>> '{protocol, habitat, hs3A}') AS the_s_cat1
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs3B}')   AS the_s_cat2
+                                               new.item #>> '{protocol, habitat, hs3B}') AS the_s_cat2
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs4A}')   AS the_s_sscat1
+                                               new.item #>> '{protocol, habitat, hs4A}') AS the_s_sscat1
   ,
     pr_stoc.get_code_point_values_from_vn_code('code'::TEXT,
-                                               new.item #>> '{protocol, habitat, hs4B}')   AS the_s_sscat2
+                                               new.item #>> '{protocol, habitat, hs4B}') AS the_s_sscat2
   ,
     CASE WHEN new.item #>> '{protocol, site_code}' LIKE '99%'
              THEN TRUE
-         ELSE FALSE END                                                                    AS the_site
+         ELSE FALSE END AS the_site
   ,
     st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
-            2154)                                                                          AS geom
+            2154) AS geom
   ,
-    cast(new.item #>> '{protocol, visit_number}' AS INT)                                   AS the_passage_mnhn
+    cast(new.item #>> '{protocol, visit_number}' AS INT) AS the_passage_mnhn
 
 
 --        the_passage_mnhn
@@ -201,15 +221,19 @@ SELECT
 --         []
 FROM import_vn.forms_json AS new
 WHERE
-    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS';
+    item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+;
 
 SELECT DISTINCT st_srid(geom)
-FROM ref_geo.dem_vector;
+FROM ref_geo.dem_vector
+;
 
 SELECT
     pr_stoc.get_altitude_from_dem(st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154))
-FROM import_vn.forms_json AS new;
+FROM import_vn.forms_json AS new
+;
+
 SELECT
     st_value(dem.rast, st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154))
@@ -224,27 +248,33 @@ SELECT DISTINCT
   , cast(new.item ->> 'lat' AS FLOAT)
   , st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154)
-FROM import_vn.forms_json new;
+FROM import_vn.forms_json new
+;
 
 CREATE TABLE lpoaura_fcl.forms_json AS
 SELECT
     row_number() OVER () AS id
   , st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
-            2154)        AS geom
-FROM import_vn.forms_json new;
+            2154) AS geom
+FROM import_vn.forms_json new
+;
 
 SELECT cast(item ->> '@uid' AS INT)
-FROM import_vn.forms_json;
+FROM import_vn.forms_json
+;
 
 CAST
+
     ((item -> '@uid') AS INTEGER)
-    FROM import_vn.forms_json;
+    FROM import_vn.forms_json
+;
 
 SELECT DISTINCT
     st_srid(st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326), 2154))
-FROM import_vn.forms_json new;
+FROM import_vn.forms_json new
+;
 
 CREATE TABLE tmp.forms_arch AS
 SELECT *
@@ -258,13 +288,13 @@ WITH t1 AS
               array_agg(DISTINCT item ->> 'id_form_universal') AS id_form_universal
             ,
               array_agg(DISTINCT src_lpodatas.get_observer_full_name_from_vn(
-                      cast(item ->> '@uid' AS INT)))           AS observers
+                      cast(item ->> '@uid' AS INT))) AS observers
             ,
-              item #>> '{protocol, site_code}'                 AS carre
+              item #>> '{protocol, site_code}' AS carre
             ,
-              item ->> 'date_start'                            AS date
+              item ->> 'date_start' AS date
             ,
-              item #>> '{protocol, sequence_number}'           AS pt
+              item #>> '{protocol, sequence_number}' AS pt
             ,
               count(*)
             ,
@@ -302,13 +332,16 @@ WHERE
              concat(carre_numnat,
                     '|', date,
                     '|', point_num)
-         FROM pr_stoc.t_releves);
+         FROM pr_stoc.t_releves)
+;
 
 UPDATE import_vn.forms_json
 SET
-    site=site;
+    site=site
+;
 
-SELECT extract(EPOCH FROM now());
+SELECT extract(EPOCH FROM now())
+;
 
 SELECT DISTINCT ((o.item -> 'observers') -> 0) ->> 'precision', count(*)
 FROM
@@ -317,7 +350,8 @@ FROM
 WHERE
     f.item ->> 'id_form_universal' IS NOT NULL
 GROUP BY
-    ((o.item -> 'observers') -> 0) ->> 'precision';
+    ((o.item -> 'observers') -> 0) ->> 'precision'
+;
 
 SELECT
     r.carre_numnat
@@ -334,17 +368,19 @@ FROM
         JOIN import_vn.observations_json o ON o.id_form_universal = r.source_id_universal
 
 /* Select * from */
-SET TIMEZONE = 'Europe/Paris';
+SET TIMEZONE = 'Europe/Paris'
+;
+
 WITH d AS (
     SELECT
-        pr_stoc.get_id_releve_from_id_form_uid(o.id_form_universal)                                 AS id_releve
-      , o.site                                                                                      AS source_bdd
-      , o.id                                                                                        AS source_id
-      , o.id_form_universal                                                                         AS id_form_universal
-      , pr_stoc.get_code_euring_from_vn_id_species(cast(o.item #>> '{species, @id}' AS INT))        AS codesp_euring
-      , o.item #>> '{species, @id}'                                                                 AS species
-      , jsonb_array_elements((o.item -> 'observers') -> 0 -> 'details')                             AS details
-      , jsonb_array_elements((o.item -> 'observers') -> 0 -> 'details') ->> 'count'                 AS nombre
+        pr_stoc.get_id_releve_from_id_form_uid(o.id_form_universal) AS id_releve
+      , o.site AS source_bdd
+      , o.id AS source_id
+      , o.id_form_universal AS id_form_universal
+      , pr_stoc.get_code_euring_from_vn_id_species(cast(o.item #>> '{species, @id}' AS INT)) AS codesp_euring
+      , o.item #>> '{species, @id}' AS species
+      , jsonb_array_elements((o.item -> 'observers') -> 0 -> 'details') AS details
+      , jsonb_array_elements((o.item -> 'observers') -> 0 -> 'details') ->> 'count' AS nombre
       , pr_stoc.get_distance_label_from_vn_code(
                     jsonb_array_elements((o.item -> 'observers') -> 0 -> 'details') ->> 'distance') AS dist
     FROM import_vn.observations_json o
@@ -354,5 +390,6 @@ WITH d AS (
             jsonb_array_length((item -> 'observers') -> 0 ->
                                'details') > 1)
 SELECT *
-FROM d;
+FROM d
+;
 
