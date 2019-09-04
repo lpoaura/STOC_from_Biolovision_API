@@ -34,7 +34,8 @@ CREATE TABLE pr_stoc.cor_euring_vn_taxref (
     code_euring   VARCHAR(20),
     num_euring    INTEGER,
     taxref_cd_nom INTEGER,
-    vn_id_species INTEGER
+    vn_id_species INTEGER,
+    ref_tax       BOOLEAN
 );
 
 CREATE INDEX cor_euring_vn_taxref_idx_code_euring ON pr_stoc.cor_euring_vn_taxref(code_euring);
@@ -119,7 +120,7 @@ CREATE TABLE pr_stoc.t_releves (
     passage_mnhn        VARCHAR(10),
     source_bdd          VARCHAR(50),
     source_id           INTEGER,
-    source_id_universal VARCHAR(50) UNIQUE,
+    source_id_universal VARCHAR(250) UNIQUE,
     type_eps            VARCHAR(20),
     geom                GEOMETRY(point, 2154),
     CONSTRAINT type_esp_con CHECK (type_eps IN ('Point', 'Transect') OR type_eps IS NULL)
@@ -131,6 +132,9 @@ CREATE TABLE pr_stoc.t_releves (
 CREATE UNIQUE INDEX ON pr_stoc.t_releves(source_id_universal);
 CREATE UNIQUE INDEX ON pr_stoc.t_releves(carre_numnat, date, point_num, source_id_universal);
 CREATE INDEX ON pr_stoc.t_releves(carre_numnat, date, point_num);
+CREATE INDEX ON pr_stoc.t_releves(source_bdd);
+CREATE INDEX ON pr_stoc.t_releves(source_id);
+
 
 CREATE INDEX ON pr_stoc.t_releves
     USING gist(geom)
@@ -155,6 +159,12 @@ CREATE TABLE pr_stoc.t_observations (
     source_id_universal VARCHAR(50)
 )
 ;
+
+CREATE INDEX ON pr_stoc.t_observations(id_releve);
+CREATE INDEX ON pr_stoc.t_observations(codesp_euring);
+CREATE INDEX ON pr_stoc.t_observations(source_bdd);
+CREATE INDEX ON pr_stoc.t_observations(source_id);
+CREATE INDEX ON pr_stoc.t_observations(source_id_universal);
 
 -- alter table pr_stoc.observations
 --   drop constraint observations_id_releve_fkey,
