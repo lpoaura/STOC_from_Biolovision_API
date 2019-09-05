@@ -207,6 +207,7 @@ DECLARE
     the_source_id_universal VARCHAR(20);
     the_source_bdd          VARCHAR(20);
     the_type_eps            VARCHAR(20);
+    the_maj_ts              TIMESTAMP;
 BEGIN
     the_date = CAST(new.item ->> 'date_start' AS DATE);
     the_heure = CAST(new.item ->> 'time_start' AS TIME);
@@ -246,162 +247,109 @@ BEGIN
     the_type_eps = CASE WHEN (new.item -> 'protocol' ? 'stoc_transport')
                             THEN 'Transect'
                         ELSE NULL END;
-    IF (tg_op = 'UPDATE')
+    the_maj_ts = to_timestamp(NEW.update_ts)
+                     AS IF
+                 (tg_op = 'UPDATE') THEN
+    UPDATE pr_stoc.t_releves
+    SET
+        date                = the_date
+      , heure               = the_heure
+      , observateur         = the_observateur
+      , carre_numnat        = the_carre_numnat
+      , point_num           = the_point_num
+      , altitude            = the_altitude
+      , nuage               = the_nuage
+      , pluie               = the_pluie
+      , vent                = the_vent
+      , visibilite          = the_visibilite
+      , p_milieu            = the_p_milieu
+      , p_type              = the_p_type
+      , p_cat1              = the_p_cat1
+      , p_cat2              = the_p_cat2
+      , p_ss_cat1           = the_p_ss_cat1
+      , p_ss_cat2           = the_p_ss_cat2
+      , s_milieu            = the_s_milieu
+      , s_type              = the_s_type
+      , s_cat1              = the_s_cat1
+      , s_cat2              = the_s_cat2
+      , s_ss_cat1           = the_s_ss_cat1
+      , s_ss_cat2           = the_s_ss_cat2
+      , site                = the_site
+      , geom                = the_geom
+      , passage_mnhn        = the_passage_mnhn
+      , source_bdd          = the_source_bdd
+      , source_id_universal = the_source_id_universal
+      , type_eps            = the_type_eps
+    WHERE
+            (t_releves.carre_numnat, t_releves.date, t_releves.point_num, t_releves.source_id_universal) =
+            (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
+    IF NOT found
     THEN
-        UPDATE pr_stoc.t_releves
-        SET
-            date                = the_date
-          ,
-            heure               = the_heure
-          ,
-            observateur         = the_observateur
-          ,
-            carre_numnat        = the_carre_numnat
-          ,
-            point_num           = the_point_num
-          ,
-            altitude            = the_altitude
-          ,
-            nuage               = the_nuage
-          ,
-            pluie               = the_pluie
-          ,
-            vent                = the_vent
-          ,
-            visibilite          = the_visibilite
-          ,
-            p_milieu            = the_p_milieu
-          ,
-            p_type              = the_p_type
-          ,
-            p_cat1              = the_p_cat1
-          ,
-            p_cat2              = the_p_cat2
-          ,
-            p_ss_cat1           = the_p_ss_cat1
-          ,
-            p_ss_cat2           = the_p_ss_cat2
-          ,
-            s_milieu            = the_s_milieu
-          ,
-            s_type              = the_s_type
-          ,
-            s_cat1              = the_s_cat1
-          ,
-            s_cat2              = the_s_cat2
-          ,
-            s_ss_cat1           = the_s_ss_cat1
-          ,
-            s_ss_cat2           = the_s_ss_cat2
-          ,
-            site                = the_site
-          ,
-            geom                = the_geom
-          ,
-            passage_mnhn        = the_passage_mnhn
-          ,
-            source_bdd          = the_source_bdd
-          ,
-            source_id_universal = the_source_id_universal
-          ,
-            type_eps            = the_type_eps
-        WHERE
-                (carre_numnat, date, point_num, source_id_universal) =
-                (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
-        IF NOT found
-        THEN
-            INSERT INTO
-                pr_stoc.t_releves ( date, heure, observateur, carre_numnat, point_num, altitude, nuage, pluie, vent
-                                  , visibilite, p_milieu, p_type, p_cat1, p_cat2, p_ss_cat1, p_ss_cat2, s_milieu, s_type
-                                  , s_cat1, s_cat2, s_ss_cat1, s_ss_cat2, site, geom, passage_mnhn, source_bdd
-                                  , source_id_universal, type_eps)
-            VALUES
-            ( the_date, the_heure, the_observateur, the_carre_numnat, the_point_num, the_altitude, the_nuage, the_pluie
-            , the_vent, the_visibilite, the_p_milieu, the_p_type, the_p_cat1, the_p_cat2, the_p_ss_cat1, the_p_ss_cat2
-            , the_s_milieu, the_s_type, the_s_cat1, the_s_cat2, the_s_ss_cat1, the_s_ss_cat2, the_site, the_geom
-            , the_passage_mnhn, the_source_bdd, the_source_id_universal, the_type_eps);
-            RETURN new;
-        END IF;
-        RETURN new;
-    ELSE
-        IF (tg_op = 'INSERT')
-        THEN
-            INSERT INTO
-                pr_stoc.t_releves ( date, heure, observateur, carre_numnat, point_num, altitude, nuage, pluie, vent
-                                  , visibilite, p_milieu, p_type, p_cat1, p_cat2, p_ss_cat1, p_ss_cat2, s_milieu, s_type
-                                  , s_cat1, s_cat2, s_ss_cat1, s_ss_cat2, site, geom, passage_mnhn, source_bdd
-                                  , source_id_universal, type_eps)
-            VALUES
-            ( the_date, the_heure, the_observateur, the_carre_numnat, the_point_num, the_altitude, the_nuage, the_pluie
-            , the_vent, the_visibilite, the_p_milieu, the_p_type, the_p_cat1, the_p_cat2, the_p_ss_cat1, the_p_ss_cat2
-            , the_s_milieu, the_s_type, the_s_cat1, the_s_cat2, the_s_ss_cat1, the_s_ss_cat2, the_site, the_geom
-            , the_passage_mnhn, the_source_bdd, the_source_id_universal, the_type_eps)
-            ON CONFLICT (source_id_universal) DO UPDATE SET
-                                      date                = the_date
-                                    ,
-                                      heure               = the_heure
-                                    ,
-                                      observateur         = the_observateur
-                                    ,
-                                      carre_numnat        = the_carre_numnat
-                                    ,
-                                      point_num           = the_point_num
-                                    ,
-                                      altitude            = the_altitude
-                                    ,
-                                      nuage               = the_nuage
-                                    ,
-                                      pluie               = the_pluie
-                                    ,
-                                      vent                = the_vent
-                                    ,
-                                      visibilite          = the_visibilite
-                                    ,
-                                      p_milieu            = the_p_milieu
-                                    ,
-                                      p_type              = the_p_type
-                                    ,
-                                      p_cat1              = the_p_cat1
-                                    ,
-                                      p_cat2              = the_p_cat2
-                                    ,
-                                      p_ss_cat1           = the_p_ss_cat1
-                                    ,
-                                      p_ss_cat2           = the_p_ss_cat2
-                                    ,
-                                      s_milieu            = the_s_milieu
-                                    ,
-                                      s_type              = the_s_type
-                                    ,
-                                      s_cat1              = the_s_cat1
-                                    ,
-                                      s_cat2              = the_s_cat2
-                                    ,
-                                      s_ss_cat1           = the_s_ss_cat1
-                                    ,
-                                      s_ss_cat2           = the_s_ss_cat2
-                                    ,
-                                      site                = the_site
-                                    ,
-                                      geom                = the_geom
-                                    ,
-                                      passage_mnhn        = the_passage_mnhn
-                                    ,
-                                      source_bdd          = the_source_bdd
-                                    ,
-                                      source_id_universal = the_source_id_universal
-                                    ,
-                                      type_eps            = the_type_eps
-            WHERE
-                    (carre_numnat, date, point_num, source_id_universal) =
-                    (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
-            RETURN new;
-        END IF;
+        INSERT INTO
+            pr_stoc.t_releves ( date, heure, observateur, carre_numnat, point_num, altitude, nuage, pluie, vent
+                              , visibilite, p_milieu, p_type, p_cat1, p_cat2, p_ss_cat1, p_ss_cat2, s_milieu, s_type
+                              , s_cat1, s_cat2, s_ss_cat1, s_ss_cat2, site, geom, passage_mnhn, source_bdd
+                              , source_id_universal, type_eps)
+        VALUES
+        ( the_date, the_heure, the_observateur, the_carre_numnat, the_point_num, the_altitude, the_nuage, the_pluie
+        , the_vent, the_visibilite, the_p_milieu, the_p_type, the_p_cat1, the_p_cat2, the_p_ss_cat1, the_p_ss_cat2
+        , the_s_milieu, the_s_type, the_s_cat1, the_s_cat2, the_s_ss_cat1, the_s_ss_cat2, the_site, the_geom
+        , the_passage_mnhn, the_source_bdd, the_source_id_universal, the_type_eps);
         RETURN new;
     END IF;
-END;
-$$
-    LANGUAGE plpgsql
+    RETURN new;
+    ELSE
+    IF (tg_op = 'INSERT')
+    THEN
+        INSERT INTO
+            pr_stoc.t_releves ( date, heure, observateur, carre_numnat, point_num, altitude, nuage, pluie, vent
+                              , visibilite, p_milieu, p_type, p_cat1, p_cat2, p_ss_cat1, p_ss_cat2, s_milieu, s_type
+                              , s_cat1, s_cat2, s_ss_cat1, s_ss_cat2, site, geom, passage_mnhn, source_bdd
+                              , source_id_universal, type_eps)
+        VALUES
+        ( the_date, the_heure, the_observateur, the_carre_numnat, the_point_num, the_altitude, the_nuage, the_pluie
+        , the_vent, the_visibilite, the_p_milieu, the_p_type, the_p_cat1, the_p_cat2, the_p_ss_cat1, the_p_ss_cat2
+        , the_s_milieu, the_s_type, the_s_cat1, the_s_cat2, the_s_ss_cat1, the_s_ss_cat2, the_site, the_geom
+        , the_passage_mnhn, the_source_bdd, the_source_id_universal, the_type_eps)
+        ON CONFLICT (source_id_universal)
+            DO UPDATE
+            SET
+                date                = the_date
+              , heure               = the_heure
+              , observateur         = the_observateur
+              , carre_numnat        = the_carre_numnat
+              , point_num           = the_point_num
+              , altitude            = the_altitude
+              , nuage               = the_nuage
+              , pluie               = the_pluie
+              , vent                = the_vent
+              , visibilite          = the_visibilite
+              , p_milieu            = the_p_milieu
+              , p_type              = the_p_type
+              , p_cat1              = the_p_cat1
+              , p_cat2              = the_p_cat2
+              , p_ss_cat1           = the_p_ss_cat1
+              , p_ss_cat2           = the_p_ss_cat2
+              , s_milieu            = the_s_milieu
+              , s_type              = the_s_type
+              , s_cat1              = the_s_cat1
+              , s_cat2              = the_s_cat2
+              , s_ss_cat1           = the_s_ss_cat1
+              , s_ss_cat2           = the_s_ss_cat2
+              , site                = the_site
+              , geom                = the_geom
+              , passage_mnhn        = the_passage_mnhn
+              , source_bdd          = the_source_bdd
+              , source_id_universal = the_source_id_universal
+              , type_eps            = the_type_eps
+        WHERE
+                (t_releves.carre_numnat, t_releves.date, t_releves.point_num, t_releves.source_id_universal) =
+                (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
+        RETURN new;
+    END IF;
+    RETURN new;
+END IF; END;
+$$ LANGUAGE plpgsql
 ;
 
 
@@ -420,50 +368,24 @@ EXECUTE PROCEDURE pr_stoc.upsert_releves()
 ;
 
 
-
--- UPDATE import_vn.forms_json
--- SET
---     site=site
--- ;
---
--- SELECT *
--- FROM pr_stoc.t_releves
--- ;
-
 /* Trigger sur les observations pour détecter les types de relevés (transect ou point d'écoute */
 
 CREATE OR REPLACE FUNCTION pr_stoc.update_type_releves_from_obs() RETURNS TRIGGER AS
 $$
 DECLARE
-    source_type_eps VARCHAR(20);
-    new_type_eps    VARCHAR(20);
-    is_stoc_eps     BOOLEAN;
+    is_stoc_eps BOOLEAN;
 BEGIN
     is_stoc_eps = new.id_form_universal IN (SELECT source_id_universal FROM pr_stoc.t_releves WHERE type_eps IS NULL);
     IF is_stoc_eps
     THEN
-        --         source_type_eps = (SELECT type_eps FROM pr_stoc.t_releves WHERE source_id_universal = new.id_form_universal);
-/*        new_type_eps = CASE WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
+        UPDATE pr_stoc.t_releves
+        SET
+            type_eps = CASE WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
                                 THEN 'Point'
                             WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'transect'
                                 THEN 'Transect'
-                            ELSE NULL
-            END;*/
-        --         RAISE NOTICE 'FORM % | OLD % | NEW %', new.id_form_universal, source_type_eps, new_type_eps;
---         RAISE NOTICE 'DIFF %', (source_type_eps IS DISTINCT FROM new_type_eps);
-/*        IF (source_type_eps IS DISTINCT FROM new_type_eps)
-        THEN*/
---             RAISE NOTICE 'releve % to update with %', NEW.id_form_universal, new_type_eps;
-        UPDATE pr_stoc.t_releves
-        SET
-            type_eps = new_type_eps = CASE WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'subplace'
-                                               THEN 'Point'
-                                           WHEN (new.item -> 'observers') -> 0 ->> 'precision' LIKE 'transect'
-                                               THEN 'Transect'
-                                           ELSE NULL END
+                            ELSE NULL END
         WHERE source_id_universal = new.id_form_universal;
-/*        END IF;
-        RETURN new;*/
     END IF;
     RETURN new;
 END ;
@@ -515,32 +437,41 @@ EXECUTE PROCEDURE pr_stoc.delete_obs_from_vn()
 CREATE OR REPLACE FUNCTION pr_stoc.upsert_obs_from_vn() RETURNS TRIGGER AS
 $$
 DECLARE
-    the_id_releve INT;
+    the_id_releve     INT;
+    the_codesp_euring VARCHAR(20);
+    is_stoc_eps       BOOLEAN;
 BEGIN
-    the_id_releve = pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
-    IF (tg_op = 'UPDATE')
+    is_stoc_eps = new.id_form_universal IN (SELECT source_id_universal FROM pr_stoc.t_releves);
+    IF is_stoc_eps
     THEN
+        the_id_releve = pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
+        the_codesp_euring = pr_stoc.get_code_euring_from_vn_id_species(cast(new.item #>> '{species, @id}' AS INT));
+        IF (tg_op = 'UPDATE')
+        THEN
 --         RAISE NOTICE 'DELETE DATA FROM RELEVE %', pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
-        DELETE
-        FROM pr_stoc.t_observations
-        WHERE id_releve = the_id_releve;
+            DELETE
+            FROM pr_stoc.t_observations
+            WHERE id_releve = the_id_releve AND codesp_euring = the_codesp_euring;
+        END IF;
+        RAISE NOTICE 'INSERT DATA FROM RELEVE %', pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
+        INSERT
+        INTO
+            pr_stoc.t_observations ( id_releve, codesp_euring, vn_is_species, nombre, distance, details, source_bdd
+                                   , source_id, source_id_universal, update_ts)
+        SELECT
+            the_id_releve                                                                                 AS id_releve
+          , the_codesp_euring                                                                             AS codesp_euring
+          , cast(new.item #>> '{species, @id}' AS INT)                                                    AS species
+          , cast(jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'count' AS INT)    AS nombre
+          , pr_stoc.get_distance_label_from_vn_code(
+                        jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'distance') AS dist
+          , jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details')                             AS details
+          , new.site                                                                                      AS source_bdd
+          , new.id                                                                                        AS source_id
+          , (new.item -> 'observers') -> 0 ->> 'id_universal'                                             AS source_id_universal
+          , to_timestamp(NEW.update_ts)                                                                   AS update_ts;
+        RETURN NULL;
     END IF;
-    RAISE NOTICE 'INSERT DATA FROM RELEVE %', pr_stoc.get_id_releve_from_id_form_uid(new.id_form_universal);
-    INSERT
-    INTO
-        pr_stoc.t_observations ( id_releve, codesp_euring, vn_is_species, nombre, distance, details, source_bdd
-                               , source_id, source_id_universal)
-    SELECT
-        the_id_releve                                                                                 AS id_releve
-      , pr_stoc.get_code_euring_from_vn_id_species(cast(new.item #>> '{species, @id}' AS INT))        AS codesp_euring
-      , cast(new.item #>> '{species, @id}' AS INT)                                                    AS species
-      , cast(jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'count' AS INT)    AS nombre
-      , pr_stoc.get_distance_label_from_vn_code(
-                    jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details') ->> 'distance') AS dist
-      , jsonb_array_elements((new.item -> 'observers') -> 0 -> 'details')                             AS details
-      , new.site                                                                                      AS source_bdd
-      , new.id                                                                                        AS source_id
-      , (new.item -> 'observers') -> 0 ->> 'id_universal'                                             AS source_id_universal;
     RETURN NULL;
 END ;
 $$
@@ -560,12 +491,15 @@ CREATE TRIGGER stoc_observation_upsert_from_vn_trigger
 EXECUTE PROCEDURE pr_stoc.upsert_obs_from_vn()
 ;
 
-/*
-UPDATE import_vn.forms_json
-SET site=site;
-*/
-/*
-UPDATE import_vn.observations_json
-SET site=site
-WHERE id_form_universal IS NOT NULL;
-*/
+/* TODO euplement des relevés STOC EPS */
+-- UPDATE import_vn.forms_json
+-- SET
+--     site=site;
+
+/* TODO Peuplement des observations détaillées STOC EPS */
+-- UPDATE import_vn.observations_json
+-- SET
+--     site=site
+-- WHERE
+--         id_form_universal IN (SELECT source_id_universal FROM pr_stoc.t_releves WHERE source_bdd LIKE 'vn%');
+

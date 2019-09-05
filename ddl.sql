@@ -156,7 +156,8 @@ CREATE TABLE pr_stoc.t_observations (
     details             JSONB,
     source_bdd          VARCHAR(50),
     source_id           INTEGER,
-    source_id_universal VARCHAR(50)
+    source_id_universal VARCHAR(50),
+    update_ts              TIMESTAMP
 )
 ;
 
