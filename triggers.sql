@@ -483,12 +483,12 @@ BEGIN
         UPDATE pr_stoc.t_releves
         SET
             type_eps = CASE
-                           WHEN item #>> '{observers,0,precision}' LIKE 'transect%' THEN 'Transect'
+                           WHEN new.item #>> '{observers,0,precision}' LIKE 'transect%' THEN 'Transect'
                            ELSE 'Point'
                 END
             WHERE
                   source_id_universal = new.id_form_universal
-              AND type_eps NOT LIKE 'Point';
+              AND coalesce(type_eps, '') NOT LIKE 'Point';
     END IF;
     RETURN new;
 END ;
