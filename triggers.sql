@@ -109,7 +109,8 @@ CREATE OR REPLACE FUNCTION import_vn.forms_json_id_universal(JSONB)
     RETURNS VARCHAR(50)
 AS
 $$
-SELECT ($1 -> 'id_form_universal')::VARCHAR(50)
+SELECT
+    ($1 -> 'id_form_universal')::VARCHAR(50)
 $$
     LANGUAGE sql
     IMMUTABLE
@@ -123,7 +124,8 @@ CREATE OR REPLACE FUNCTION import_vn.forms_json_protocol_name(JSONB)
     RETURNS VARCHAR(50)
 AS
 $$
-SELECT ($1 #> '{protocol, protocol_name}')::VARCHAR(50)
+SELECT
+    ($1 #> '{protocol, protocol_name}')::VARCHAR(50)
 $$
     LANGUAGE sql
     IMMUTABLE
@@ -176,7 +178,7 @@ CREATE TRIGGER stoc_releve_delete_from_vn_trigger
     AFTER DELETE
     ON import_vn.forms_json
     FOR EACH ROW
-    WHEN (old.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
+    WHEN (old.item #>> '{protocol, protocol_name}' LIKE 'STOC_%')
 EXECUTE PROCEDURE pr_stoc.delete_releves()
 ;
 
@@ -190,6 +192,7 @@ DECLARE
     the_observateur         VARCHAR(100);
     the_carre_numnat        INTEGER;
     the_point_num           INTEGER;
+    the_site_name           VARCHAR(250);
     the_altitude            INTEGER;
     the_nuage               INTEGER;
     the_pluie               INTEGER;
@@ -219,8 +222,15 @@ BEGIN
     the_observateur =
             src_lpodatas.get_observer_full_name_from_vn(
                     cast(new.item ->> '@uid' AS INT));
-    the_carre_numnat = cast(new.item #>> '{protocol, site_code}' AS BIGINT);
+    the_carre_numnat = CASE
+                           WHEN new.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS'
+                               THEN cast(new.item #>> '{protocol, site_code}' AS BIGINT)
+        END;
     the_point_num = cast(new.item #>> '{protocol, sequence_number}' AS BIGINT);
+    the_site_name = CASE
+                        WHEN new.item #>> '{protocol, protocol_name}' LIKE 'STOC_SITES'
+                            THEN new.item #>> '{protocol, site_code}'
+        END;
     the_altitude = pr_stoc.get_altitude_from_dem(st_transform(
             st_setsrid(st_makepoint(cast(new.item ->> 'lon' AS FLOAT), cast(new.item ->> 'lat' AS FLOAT)), 4326),
             2154));
@@ -242,7 +252,7 @@ BEGIN
     the_s_ss_cat1 = pr_stoc.get_code_point_values_from_vn_code('code'::TEXT, new.item #>> '{protocol, habitat, hs4A}');
     the_s_ss_cat2 = pr_stoc.get_code_point_values_from_vn_code('code'::TEXT, new.item #>> '{protocol, habitat, hs4B}');
     the_site = CASE
-                   WHEN new.item #>> '{protocol, site_code}' LIKE '99%'
+                   WHEN new.item #>> '{protocol, protocol_name}' LIKE 'STOC_SITES'
                        THEN TRUE
                    ELSE FALSE END;
     the_geom = st_transform(
@@ -263,6 +273,7 @@ BEGIN
           , observateur         = the_observateur
           , carre_numnat        = the_carre_numnat
           , point_num           = the_point_num
+          , site_name           = the_site_name
           , altitude            = the_altitude
           , nuage               = the_nuage
           , pluie               = the_pluie
@@ -298,6 +309,7 @@ t_releves.source_id_universal = the_source_id_universal;
                                   , observateur
                                   , carre_numnat
                                   , point_num
+                                  , site_name
                                   , altitude
                                   , nuage
                                   , pluie
@@ -327,6 +339,7 @@ t_releves.source_id_universal = the_source_id_universal;
                     , the_observateur
                     , the_carre_numnat
                     , the_point_num
+                    , the_site_name
                     , the_altitude
                     , the_nuage
                     , the_pluie
@@ -362,6 +375,7 @@ t_releves.source_id_universal = the_source_id_universal;
                                   , observateur
                                   , carre_numnat
                                   , point_num
+                                  , site_name
                                   , altitude
                                   , nuage
                                   , pluie
@@ -391,6 +405,7 @@ t_releves.source_id_universal = the_source_id_universal;
                     , the_observateur
                     , the_carre_numnat
                     , the_point_num
+                    , the_site_name
                     , the_altitude
                     , the_nuage
                     , the_pluie
@@ -420,6 +435,7 @@ t_releves.source_id_universal = the_source_id_universal;
                                                           , observateur         = the_observateur
                                                           , carre_numnat        = the_carre_numnat
                                                           , point_num           = the_point_num
+                                                          , site_name           = the_site_name
                                                           , altitude            = the_altitude
                                                           , nuage               = the_nuage
                                                           , pluie               = the_pluie
@@ -444,8 +460,10 @@ t_releves.source_id_universal = the_source_id_universal;
                                                           , source_id_universal = the_source_id_universal
                                                           , type_eps            = the_type_eps
                 WHERE
-                        (t_releves.carre_numnat, t_releves.date, t_releves.point_num, t_releves.source_id_universal) =
-                        (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
+                    t_releves.source_id_universal = the_source_id_universal;
+            --                         (t_releves.carre_numnat, t_releves.date, t_releves.point_num, t_releves.source_id_universal) =
+--                         (the_carre_numnat, the_date, the_point_num, the_source_id_universal);
+
             RETURN new;
         END IF;
         RETURN new;
@@ -465,7 +483,7 @@ CREATE TRIGGER stoc_releve_upsert_from_vn_trigger
     AFTER UPDATE OR INSERT
     ON import_vn.forms_json
     FOR EACH ROW
-    WHEN (new.item #>> '{protocol, protocol_name}' LIKE 'STOC_EPS')
+    WHEN (new.item #>> '{protocol, protocol_name}' LIKE 'STOC_%')
 EXECUTE PROCEDURE pr_stoc.upsert_releves()
 ;
 

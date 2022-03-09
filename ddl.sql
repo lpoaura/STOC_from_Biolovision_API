@@ -99,6 +99,7 @@ CREATE TABLE pr_stoc.t_releves (
     observateur         VARCHAR(100),
     carre_numnat        INTEGER,
     point_num           INTEGER,
+    site_name VARCHAR(250),
     altitude            INTEGER,
     nuage               INTEGER,
     pluie               INTEGER,
@@ -125,7 +126,6 @@ CREATE TABLE pr_stoc.t_releves (
     geom                GEOMETRY(point, 2154),
     CONSTRAINT type_esp_con CHECK (type_eps IN ('Point', 'Transect') OR type_eps IS NULL)
 );
-
 
 /* Index sur les colonnes carre_numnat, date et point_num */
 
