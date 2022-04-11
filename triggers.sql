@@ -597,6 +597,9 @@ $$
     LANGUAGE plpgsql
 ;
 
+DROP TRIGGER IF EXISTS stoc_observation_upsert_from_vn_trigger
+    ON import_vn.observations_json
+;
 
 CREATE TRIGGER stoc_observation_upsert_from_vn_trigger
     AFTER UPDATE OR INSERT
