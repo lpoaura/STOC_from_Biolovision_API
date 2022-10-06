@@ -1,3 +1,6 @@
+> **Warning**
+> Project obsolete, replaced by https://github.com/lpoaura/visionature-data-for-vigie-nature
+
 # Module GeoNature gn_pr_stoc.
 
 Centralisation des données issues des protocole [STOC Point d'écoute (EPS)](http://www.vigienature.fr/fr/suivi-temporel-des-oiseaux-communs-stoc) dans une base de données [GeoNature](https://github.com/PnX-SI/GeoNature) sur un serveur PostgreSQL/PostGIS.
